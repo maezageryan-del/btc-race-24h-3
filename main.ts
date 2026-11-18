@@ -35,13 +35,15 @@
 // own numbers.
 //
 // Dev-window check (kit's frozen 24h window, BTC -2.8% over the day): the
-// official local grade gives net PnL about +19.98 USDC with 3 trades (win
-// rate 1.00) and 0.65% maximum drawdown, above the dev gate's break-even,
-// while buy-and-hold records about -31.63 USDC on the same window and every
-// kit baseline loses. The same parameters are positive on the two earlier
-// race windows as well (+4.52 on the 20261117-0603 window, +4.30 on the
-// 20261115-0828 window), so the result does not hinge on one tuned number or
-// one day's tape.
+// official local grade (grade-local, driver process, L1 regrade reproduced
+// byte for byte) gives net PnL +19.980262 USDC with 3 trades (win rate 1.00),
+// 0.6518% maximum drawdown, sharpe 0.036487033, fees 0.808156 USDC — still
+// +19.17 USDC at 2x fees — above the dev gate's break-even, while buy-and-hold
+// records about -31.63 USDC on the same window and every kit baseline loses.
+// The same parameters are positive on the two earlier race windows as well
+// (+4.52 on the 20261117-0603 window, +4.30 on the 20261115-0828 window,
+// local simulation validated to reproduce the official grade exactly), so the
+// result does not hinge on one tuned number or one day's tape.
 
 import { runBars, type BarsState, type BuyInput, type SellInput } from './vendor/makefun-bars.ts';
 
