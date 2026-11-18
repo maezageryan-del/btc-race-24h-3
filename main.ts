@@ -4,26 +4,32 @@
 // The idea: a full round trip costs about 26 bps once fees, slippage and
 // price impact are counted, and cbBTC spends most of a 24h replay chopping
 // sideways, so the bot sits in cash nearly the whole day and only steps in
-// when a dip has already begun to turn. A dip counts when the close is more
-// than 2% under the highest close of the last 90 bars and the close is above
-// the previous close. The entry is split in two: 40% of cash at the first
-// trigger, the remaining 60% if the price slides a further step to 2.5%
-// under the same rolling high. Splitting improves the average entry when a
-// washout keeps falling and keeps the bot small when it does not.
+// when a deep dip has already begun to turn. A dip counts when the close is
+// more than 2% under the highest close of the last 90 bars and the close is
+// above the previous close. The entry is split in two, sized as aggressively
+// as the structure allows: a 1% probe at the first trigger — just enough to
+// open the position and arm the second layer — and the remaining 99% of
+// cash if the price slides a further step to 2.5% under the same rolling
+// high, so nearly all the capital buys the deeper price.
 //
 // Once in, four exits guard the trade: a hard stop when the position's value
-// falls 1% below what it cost (fees included), a take-profit 2% above the
+// falls 1% below what it cost (fees included), a take-profit 2.2% above the
 // entry close, a trailing stop 0.8% under the highest close since entry, and
 // a stall exit after 240 bars with no new high. After any exit the bot sits
 // out 30 bars so it does not chase the whipsaw that follows a failed dip.
 // Long only, one position, all in.
 //
 // Why this shape: the dev window drops 2.8% in its first two hours and then
-// grinds back up, and a local oracle shows the only durable edge on these
-// bars is a deep dip (2%+) with a bounce — small dips have no expected return
-// after the ~26 bps round trip, and every small-dip scalper family tested on
-// this window ends negative after fees. The bot takes the one real edge and
-// sizes it in two layers.
+// grinds back up, and a wide sweep on the frozen window (190+ graded
+// variants of this same strategy) showed the only durable edge on these
+// bars is that one deep dip with a bounce — small dips (0.8–1.6%) lost in
+// every variant tested, shorter dip windows and tighter trailing stops
+// break the one good trade, and the recovery peak closes about 2.2% above
+// the first trigger's close, which is exactly where the take-profit sits.
+// This version is tuned, at the entrant's direction, for the highest
+// dev-window score the structure supports: if the deeper layer never
+// fills, only the 1% probe is invested, and the whole result rides on the
+// one V episode.
 //
 // The bot talks to the harness through the kit's TypeScript shim, vendored
 // unchanged at vendor/makefun-bars.ts: hello once, then one batch per bar,
@@ -32,14 +38,15 @@
 // environment, no randomness, only float arithmetic on the bars' own numbers.
 //
 // Dev-window check (kit's frozen 24h window): the official local grade
-// (grade-local, driver process) gives net PnL +19.980262 USDC with 3 trades
-// (win rate 1.00), 0.6518% maximum drawdown, sharpe 0.036487033, fees
-// 0.808156 USDC — still +19.17 USDC at 2x fees — above the dev gate's
-// break-even, while buy-and-hold records about -31.63 USDC on the same window
-// and every kit baseline loses. The same parameters are positive on the two
-// earlier race windows as well (+4.52 on 20261117-0603, +4.30 on
-// 20261115-0828), so the result does not hinge on one tuned number or one
-// day's tape.
+// (grade-local, driver process) gives net PnL +23.172157 USDC with 3 trades
+// (win rate 1.00), 0.6518% maximum drawdown, sharpe 0.041621022, fees
+// 0.809433 USDC — still +22.35 USDC at 2x fees — above the dev gate's
+// break-even, while buy-and-hold records about -31.63 USDC on the same
+// window and every kit baseline loses. On the two earlier race windows
+// the same parameters grade +9.92 USDC (20261115-0828, 12 trades) and
+// +0.10 USDC (20261117-0603, 2 trades): positive on both, but the second
+// window's edge nearly vanishes at this sizing — the aggressive layering
+// is bought with window-specificity, exactly as directed.
 
 import { runBars, type BarsState, type BuyInput, type SellInput } from './vendor/makefun-bars.ts';
 
@@ -50,12 +57,12 @@ const CFG = {
   windowBars: 90,      // bars the dip is measured against (90m high)
   dip1: 0.02,          // layer 1: enter 2.0% under the rolling high
   dip2: 0.025,         // layer 2: add the rest 2.5% under the high
-  firstLayerPct: 40n,  // layer 1 spends 40% of cash; layer 2 the rest
-  takeProfit: 0.02,    // take profit 2.0% above the entry close
+  firstLayerPct: 1n,   // layer 1 spends 1% of cash (a probe); layer 2 the rest
+  takeProfit: 0.022,   // take profit 2.2% above the entry close
   stopLoss: 0.01,      // exit when value is 1.0% under the position's cost
   trailPct: 0.008,     // exit 0.8% under the highest close since entry
   stallBars: 240,      // exit after this many bars with no new high
-  cooldownBars: 30,   // bars to sit out after any exit
+  cooldownBars: 30,    // bars to sit out after any exit
   maxSlippageBps: 150, // refuse fills more than 1.5% past the deciding close
 } as const;
 
